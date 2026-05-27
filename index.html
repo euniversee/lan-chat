@@ -1,0 +1,1110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <title>LAN Group Chat</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --text: #020817;
+      --text-inverse: #ffffff;
+      --muted: #64748b;
+      --muted-bg: #f1f5f9;
+      --line: #e2e8f0;
+      --primary: #0f172a;
+      --primary-strong: #020817;
+      --own: #0f172a;
+      --other: #ffffff;
+      --system: #64748b;
+      --danger: #dc2626;
+      --ring: rgba(15, 23, 42, 0.18);
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 30px rgba(15, 23, 42, 0.08);
+      --radius: 8px;
+      --control-radius: 6px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      min-height: 100svh;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      clip-path: inset(50%);
+    }
+
+    .app-shell {
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .chat-view {
+      width: min(100%, 920px);
+    }
+
+    h1,
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(1.35rem, 4vw, 1.7rem);
+      line-height: 1.2;
+    }
+
+    .text-input {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: var(--control-radius);
+      padding: 0 12px;
+      color: var(--text);
+      background: #ffffff;
+      outline: none;
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .text-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--ring);
+    }
+
+    .text-input:disabled,
+    .primary-button:disabled,
+    .secondary-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+
+    .primary-button {
+      min-height: 40px;
+      border-radius: var(--control-radius);
+      padding: 0 16px;
+      background: var(--primary);
+      color: #ffffff;
+      font-weight: 600;
+      transition: background 150ms ease, transform 150ms ease;
+      white-space: nowrap;
+    }
+
+    .primary-button:hover {
+      background: var(--primary-strong);
+    }
+
+    .primary-button:active {
+      transform: translateY(1px);
+    }
+
+    .chat-view {
+      height: min(760px, calc(100svh - 40px));
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .chat-view[hidden] {
+      display: none;
+    }
+
+    .chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 64px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+    }
+
+    .room-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .room-icon {
+      width: 40px;
+      height: 40px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: var(--control-radius);
+      background: var(--muted-bg);
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .room-copy {
+      min-width: 0;
+    }
+
+    .room-copy h2 {
+      font-size: 0.98rem;
+      font-weight: 700;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .connection-status {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-top: 2px;
+    }
+
+    .chat-header .connection-status {
+      color: var(--muted);
+    }
+
+    .user-pill {
+      max-width: 42%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: #ffffff;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.84rem;
+    }
+
+    .messages {
+      min-height: 0;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background:
+        linear-gradient(rgba(248, 250, 252, 0.94), rgba(248, 250, 252, 0.94)),
+        radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.08) 1px, transparent 0);
+      background-size: auto, 18px 18px;
+      scroll-behavior: smooth;
+    }
+
+    .message-row {
+      display: flex;
+      width: 100%;
+    }
+
+    .message-row.own {
+      justify-content: flex-end;
+    }
+
+    .message-row.other {
+      justify-content: flex-start;
+    }
+
+    .message-bubble {
+      max-width: min(76%, 560px);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      padding-right: 36px;
+      border: 1px solid var(--line);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+      position: relative;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background: transparent;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--muted);
+      opacity: 0.4;
+      transition: opacity 150ms ease, background-color 150ms ease, color 150ms ease, transform 100ms ease;
+      padding: 0;
+    }
+
+    .message-row.own .copy-btn {
+      color: #cbd5e1;
+    }
+
+    .message-bubble:hover .copy-btn {
+      opacity: 1;
+    }
+
+    .copy-btn:hover {
+      background: var(--muted-bg);
+      color: var(--primary);
+      opacity: 1;
+    }
+
+    .message-row.own .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      opacity: 1;
+    }
+
+    .copy-btn:active {
+      transform: scale(0.9);
+    }
+
+    .image-preview-container {
+      margin-bottom: 10px;
+      border-radius: var(--control-radius);
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: var(--muted-bg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      max-height: 320px;
+      width: 100%;
+    }
+
+    .image-preview {
+      max-width: 100%;
+      max-height: 320px;
+      object-fit: contain;
+      display: block;
+      cursor: pointer;
+      transition: opacity 150ms ease;
+    }
+
+    .image-preview:hover {
+      opacity: 0.95;
+    }
+
+    .message-row.own .message-bubble {
+      background: var(--own);
+      color: #ffffff;
+      border-color: var(--own);
+    }
+
+    .message-row.own .message-time,
+    .message-row.own .file-meta {
+      color: #cbd5e1;
+    }
+
+    .message-row.own .file-name {
+      color: #ffffff;
+    }
+
+    .message-row.other .message-bubble {
+      background: var(--other);
+    }
+
+    .sender {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--primary-strong);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .message-text {
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .message-text a {
+      color: inherit;
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      word-break: break-word;
+    }
+
+    .message-time {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      text-align: right;
+    }
+
+    .file-card {
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      min-width: min(100%, 300px);
+    }
+
+    .file-icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: var(--control-radius);
+      background: #111827;
+      color: #ffffff;
+      font-size: 0.75rem;
+      font-weight: 900;
+    }
+
+    .file-info {
+      min-width: 0;
+    }
+
+    .file-name {
+      overflow: hidden;
+      color: var(--text);
+      font-weight: 800;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-meta {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-top: 2px;
+    }
+
+    .download-link {
+      border-radius: var(--control-radius);
+      padding: 8px 10px;
+      background: #111827;
+      color: #ffffff;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .system-message {
+      align-self: center;
+      max-width: min(90%, 620px);
+      text-align: center;
+      color: var(--system);
+      font-size: 0.9rem;
+      font-style: italic;
+      line-height: 1.35;
+      padding: 5px 10px;
+    }
+
+    .composer {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      padding: 14px;
+      border-top: 1px solid var(--line);
+      background: #ffffff;
+    }
+
+    .composer .text-input {
+      min-height: 40px;
+    }
+
+    .secondary-button {
+      min-width: 40px;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: var(--control-radius);
+      padding: 0 13px;
+      background: #ffffff;
+      color: var(--text);
+      font-weight: 600;
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+      white-space: nowrap;
+    }
+
+    .secondary-button:hover {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--ring);
+    }
+
+    .upload-status {
+      grid-column: 1 / -1;
+      min-height: 18px;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 640px) {
+      .app-shell {
+        padding: 0;
+        place-items: stretch;
+      }
+
+      .chat-view {
+        width: 100%;
+        height: 100svh;
+        border: 0;
+        border-radius: 0;
+      }
+
+      .chat-header {
+        min-height: 68px;
+        padding: 12px 14px;
+      }
+
+      .user-pill {
+        max-width: 38%;
+        padding: 7px 10px;
+      }
+
+      .messages {
+        padding: 14px 12px;
+      }
+
+      .message-bubble {
+        max-width: 86%;
+      }
+
+      .composer {
+        grid-template-columns: auto 1fr;
+        padding: 10px;
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+      }
+
+      .primary-button {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+
+      .file-card {
+        grid-template-columns: 38px 1fr;
+      }
+
+      .file-icon {
+        width: 38px;
+        height: 38px;
+      }
+
+      .download-link {
+        grid-column: 1 / -1;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <section id="chatView" class="chat-view" aria-labelledby="roomTitle">
+      <header class="chat-header">
+        <div class="room-title">
+          <div class="room-icon" aria-hidden="true">#</div>
+          <div class="room-copy">
+            <h2 id="roomTitle">Local Chat Room</h2>
+            <p id="connectionStatus" class="connection-status">Connecting...</p>
+          </div>
+        </div>
+        <div id="currentUser" class="user-pill" title="Active device name">Detecting...</div>
+      </header>
+
+      <div id="messages" class="messages" aria-live="polite" aria-label="Chat message list"></div>
+
+      <form id="messageForm" class="composer" autocomplete="off">
+        <input id="fileInput" class="visually-hidden" type="file">
+        <button id="fileButton" class="secondary-button" type="button" disabled title="Choose file">File</button>
+        <input
+          id="messageInput"
+          class="text-input"
+          name="message"
+          type="text"
+          maxlength="1000"
+          placeholder="Write a message..."
+          required
+          disabled
+        >
+        <button id="sendButton" class="primary-button" type="submit" disabled>Send</button>
+        <p id="uploadStatus" class="upload-status" role="status"></p>
+      </form>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    const chatView = document.getElementById("chatView");
+    const currentUser = document.getElementById("currentUser");
+    const connectionStatus = document.getElementById("connectionStatus");
+    const messages = document.getElementById("messages");
+    const messageForm = document.getElementById("messageForm");
+    const messageInput = document.getElementById("messageInput");
+    const sendButton = document.getElementById("sendButton");
+    const fileInput = document.getElementById("fileInput");
+    const fileButton = document.getElementById("fileButton");
+    const uploadStatus = document.getElementById("uploadStatus");
+
+    const maxUploadBytes = 100 * 1024 * 1024;
+
+    let mySocketId = "";
+    let myUsername = buildDeviceUsername();
+    let usernameRegistered = false;
+
+    currentUser.textContent = myUsername;
+
+    function getOrCreateDeviceSuffix() {
+      const storageKey = "lanChatDeviceSuffix";
+      const existing = window.localStorage.getItem(storageKey);
+
+      if (existing) {
+        return existing;
+      }
+
+      const bytes = new Uint8Array(2);
+      window.crypto.getRandomValues(bytes);
+      const suffix = Array.from(bytes)
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("")
+        .toUpperCase();
+
+      window.localStorage.setItem(storageKey, suffix);
+      return suffix;
+    }
+
+    function getBrowserName(userAgent) {
+      if (/Edg\//.test(userAgent)) return "Edge";
+      if (/OPR\//.test(userAgent)) return "Opera";
+      if (/CriOS\//.test(userAgent)) return "Chrome";
+      if (/FxiOS\//.test(userAgent)) return "Firefox";
+      if (/Chrome\//.test(userAgent)) return "Chrome";
+      if (/Firefox\//.test(userAgent)) return "Firefox";
+      if (/Safari\//.test(userAgent)) return "Safari";
+      return "Browser";
+    }
+
+    function getDeviceName(userAgent) {
+      const androidMatch = userAgent.match(/Android\s[\d.]+;\s?([^;)]+)/i);
+
+      if (androidMatch && androidMatch[1]) {
+        const androidName = androidMatch[1].replace(/\sBuild\/.*$/i, "").trim();
+        if (androidName && !/^wv$/i.test(androidName)) {
+          return androidName;
+        }
+      }
+
+      if (/iPad/i.test(userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) {
+        return "iPad";
+      }
+
+      if (/iPhone/i.test(userAgent)) return "iPhone";
+      if (/Android/i.test(userAgent)) return "Android";
+      if (/Windows/i.test(userAgent)) return "Windows";
+      if (/Macintosh|Mac OS X/i.test(userAgent)) return "Mac";
+      if (/Linux/i.test(userAgent)) return "Linux";
+
+      return "Perangkat";
+    }
+
+    function buildDeviceUsername() {
+      const userAgent = navigator.userAgent || "";
+      const deviceName = getDeviceName(userAgent);
+      const browserName = getBrowserName(userAgent);
+      const suffix = getOrCreateDeviceSuffix();
+      return `${deviceName} ${browserName} ${suffix}`.slice(0, 32);
+    }
+
+    function formatTime(isoValue) {
+      const date = new Date(isoValue);
+
+      if (Number.isNaN(date.getTime())) {
+        return "";
+      }
+
+      return date.toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+
+    function scrollMessagesToBottom() {
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function copyToClipboard(text, button) {
+      if (!navigator.clipboard) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand("copy");
+          showCopiedState(button);
+        } catch (err) {
+          console.error("Fallback copy failed", err);
+        }
+        document.body.removeChild(textArea);
+        return;
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        showCopiedState(button);
+      }).catch(err => {
+        console.error("Async copy failed", err);
+      });
+    }
+
+    function showCopiedState(button) {
+      const isOwn = button.closest(".message-row").classList.contains("own");
+      const checkColor = isOwn ? "#34d399" : "#10b981";
+      const wasLink = button.title === "Copy link";
+      button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${checkColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+      button.title = "Copied!";
+      setTimeout(() => {
+        button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+        button.title = wasLink ? "Copy link" : "Copy message";
+      }, 2000);
+    }
+
+    function appendSystemMessage(text) {
+      const item = document.createElement("div");
+      item.className = "system-message";
+      item.textContent = text;
+      messages.appendChild(item);
+      scrollMessagesToBottom();
+    }
+
+    function normalizeUrl(rawUrl) {
+      const trimmed = rawUrl.replace(/[),.!?;:]+$/g, "");
+      const trailing = rawUrl.slice(trimmed.length);
+      const hasProtocol = /^https?:\/\//i.test(trimmed);
+      return {
+        href: hasProtocol ? trimmed : `http://${trimmed}`,
+        label: trimmed,
+        trailing
+      };
+    }
+
+    function appendTextWithLinks(container, value) {
+      const text = String(value || "");
+      const urlPattern = /\b((?:https?:\/\/(?:localhost|(?:\d{1,3}\.){3}\d{1,3}|(?:[a-z0-9-]+\.)+[a-z]{2,}|[a-z0-9-]+)(?::\d{2,5})?(?:\/[^\s<]*)?)|(?:(?:(?:localhost|(?:\d{1,3}\.){3}\d{1,3}|(?:[a-z0-9-]+\.)+[a-z]{2,})(?::\d{2,5})?|[a-z0-9-]+:\d{2,5})(?:\/[^\s<]*)?))/gi;
+      let cursor = 0;
+      let match;
+
+      while ((match = urlPattern.exec(text)) !== null) {
+        const rawUrl = match[0];
+        const before = text[match.index - 1] || "";
+
+        if (before === "@" || rawUrl.length < 3 || !/[.:/]/.test(rawUrl) && rawUrl.toLowerCase() !== "localhost") {
+          continue;
+        }
+
+        if (match.index > cursor) {
+          container.appendChild(document.createTextNode(text.slice(cursor, match.index)));
+        }
+
+        const { href, label, trailing } = normalizeUrl(rawUrl);
+        const link = document.createElement("a");
+        link.href = href;
+        link.textContent = label;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        container.appendChild(link);
+
+        if (trailing) {
+          container.appendChild(document.createTextNode(trailing));
+        }
+
+        cursor = match.index + rawUrl.length;
+      }
+
+      if (cursor < text.length) {
+        container.appendChild(document.createTextNode(text.slice(cursor)));
+      }
+    }
+
+    function appendChatMessage(message) {
+      const isOwnMessage = message.id === mySocketId;
+      const row = document.createElement("div");
+      row.className = `message-row ${isOwnMessage ? "own" : "other"}`;
+
+      const bubble = document.createElement("article");
+      bubble.className = "message-bubble";
+
+      if (!isOwnMessage) {
+        const sender = document.createElement("span");
+        sender.className = "sender";
+        sender.textContent = message.username;
+        bubble.appendChild(sender);
+      }
+
+      // Add Copy Button
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "copy-btn";
+      copyBtn.type = "button";
+      copyBtn.title = "Copy message";
+      copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+      copyBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        copyToClipboard(message.text, copyBtn);
+      });
+      bubble.appendChild(copyBtn);
+
+      const text = document.createElement("div");
+      text.className = "message-text";
+      appendTextWithLinks(text, message.text);
+      bubble.appendChild(text);
+
+      const time = document.createElement("time");
+      time.className = "message-time";
+      time.dateTime = message.timestamp;
+      time.textContent = formatTime(message.timestamp);
+      bubble.appendChild(time);
+
+      row.appendChild(bubble);
+      messages.appendChild(row);
+      scrollMessagesToBottom();
+    }
+
+    function appendFileMessage(message) {
+      const isOwnMessage = message.id === mySocketId;
+      const row = document.createElement("div");
+      row.className = `message-row ${isOwnMessage ? "own" : "other"}`;
+
+      const bubble = document.createElement("article");
+      bubble.className = "message-bubble";
+
+      if (!isOwnMessage) {
+        const sender = document.createElement("span");
+        sender.className = "sender";
+        sender.textContent = message.username;
+        bubble.appendChild(sender);
+      }
+
+      // Add Copy Button (Copies absolute download link)
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "copy-btn";
+      copyBtn.type = "button";
+      copyBtn.title = "Copy link";
+      copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+      copyBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const absoluteUrl = new URL(message.file.downloadUrl, window.location.origin).href;
+        copyToClipboard(absoluteUrl, copyBtn);
+      });
+      bubble.appendChild(copyBtn);
+
+      // Check if file is an image for preview
+      const isImage = (message.file.mimeType && message.file.mimeType.startsWith("image/")) || 
+                      /\.(png|jpe?g|gif|svg|webp|bmp|tiff)$/i.test(message.file.name);
+
+      if (isImage) {
+        const imgLink = document.createElement("a");
+        imgLink.className = "image-preview-container";
+        imgLink.href = message.file.downloadUrl;
+        imgLink.target = "_blank";
+        imgLink.rel = "noopener noreferrer";
+
+        const img = document.createElement("img");
+        img.className = "image-preview";
+        img.src = message.file.downloadUrl;
+        img.alt = message.file.name;
+        
+        imgLink.appendChild(img);
+        bubble.appendChild(imgLink);
+      }
+
+      const fileCard = document.createElement("div");
+      fileCard.className = "file-card";
+
+      const icon = document.createElement("div");
+      icon.className = "file-icon";
+      icon.textContent = "FILE";
+      fileCard.appendChild(icon);
+
+      const info = document.createElement("div");
+      info.className = "file-info";
+
+      const name = document.createElement("div");
+      name.className = "file-name";
+      name.title = message.file.name;
+      name.textContent = message.file.name;
+      info.appendChild(name);
+
+      const meta = document.createElement("div");
+      meta.className = "file-meta";
+      meta.textContent = formatBytes(message.file.size);
+      info.appendChild(meta);
+      fileCard.appendChild(info);
+
+      const link = document.createElement("a");
+      link.className = "download-link";
+      link.href = message.file.downloadUrl;
+      link.download = message.file.name;
+      link.textContent = "Download";
+      fileCard.appendChild(link);
+
+      bubble.appendChild(fileCard);
+
+      const time = document.createElement("time");
+      time.className = "message-time";
+      time.dateTime = message.timestamp;
+      time.textContent = formatTime(message.timestamp);
+      bubble.appendChild(time);
+
+      row.appendChild(bubble);
+      messages.appendChild(row);
+      scrollMessagesToBottom();
+    }
+
+    function setChatReady(username) {
+      usernameRegistered = true;
+      myUsername = username;
+      chatView.hidden = false;
+      currentUser.textContent = myUsername;
+      messageInput.disabled = false;
+      sendButton.disabled = false;
+      fileButton.disabled = false;
+      messageInput.focus();
+    }
+
+    messageForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+
+      const text = messageInput.value.trim();
+      if (!text) {
+        return;
+      }
+
+      socket.emit("chat message", text);
+      messageInput.value = "";
+      messageInput.focus();
+    });
+
+    fileButton.addEventListener("click", () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+
+      if (!file) {
+        return;
+      }
+
+      uploadFile(file);
+      fileInput.value = "";
+    });
+
+    function uploadFile(file) {
+      if (!mySocketId || !usernameRegistered) {
+        uploadStatus.textContent = "Wait until the chat is connected before sending a file.";
+        return;
+      }
+
+      if (file.size > maxUploadBytes) {
+        uploadStatus.textContent = `File is too large. Maximum size is ${formatBytes(maxUploadBytes)}.`;
+        return;
+      }
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/upload");
+      xhr.setRequestHeader("x-socket-id", mySocketId);
+      xhr.setRequestHeader("x-file-name", encodeURIComponent(file.name));
+      xhr.setRequestHeader("content-type", file.type || "application/octet-stream");
+
+      fileButton.disabled = true;
+      uploadStatus.textContent = `Sending ${file.name}...`;
+
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          uploadStatus.textContent = `Sending ${file.name}... ${percent}%`;
+        }
+      });
+
+      xhr.addEventListener("load", () => {
+        fileButton.disabled = false;
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+          uploadStatus.textContent = `${file.name} has been shared.`;
+          setTimeout(() => {
+            if (uploadStatus.textContent.includes(file.name)) {
+              uploadStatus.textContent = "";
+            }
+          }, 3500);
+          return;
+        }
+
+        try {
+          const response = JSON.parse(xhr.responseText);
+          uploadStatus.textContent = response.error || "Failed to send file.";
+        } catch (error) {
+          uploadStatus.textContent = "Failed to send file.";
+        }
+      });
+
+      xhr.addEventListener("error", () => {
+        fileButton.disabled = false;
+        uploadStatus.textContent = "Connection was lost while sending the file.";
+      });
+
+      xhr.send(file);
+    }
+
+    socket.on("connect", () => {
+      mySocketId = socket.id;
+      connectionStatus.textContent = "Registering device...";
+
+      socket.emit("set username", myUsername, (response) => {
+        if (!response || !response.ok) {
+          connectionStatus.textContent = response?.error || "Failed to register device";
+          return;
+        }
+
+        const wasRegistered = usernameRegistered;
+        connectionStatus.textContent = "Connected";
+        mySocketId = response.id;
+        setChatReady(response.username);
+
+        if (!wasRegistered) {
+          appendSystemMessage(`You joined as ${response.username}`);
+        }
+      });
+    });
+
+    socket.on("disconnect", () => {
+      usernameRegistered = false;
+      messageInput.disabled = true;
+      sendButton.disabled = true;
+      fileButton.disabled = true;
+      connectionStatus.textContent = "Connection lost, trying to reconnect...";
+    });
+
+    socket.on("connect_error", () => {
+      connectionStatus.textContent = "Could not connect to the server";
+    });
+
+    socket.on("chat message", appendChatMessage);
+
+    socket.on("file message", appendFileMessage);
+
+    socket.on("system message", (message) => {
+      appendSystemMessage(message.text);
+    });
+
+    // PWA & Share Target Integration
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then(() => console.log("Service Worker registered successfully"))
+          .catch((err) => console.error("Service Worker registration failed:", err));
+      });
+    }
+
+    // Process shared items from Android
+    async function processSharedItems() {
+      const params = new URLSearchParams(window.location.search);
+      
+      // 1. Handle shared text or url
+      const sharedTitle = params.get("title");
+      const sharedText = params.get("text");
+      const sharedUrl = params.get("url");
+
+      if (sharedText || sharedUrl) {
+        // Clean up URL query parameters so refresh doesn't trigger share again
+        window.history.replaceState({}, document.title, "/");
+
+        let compiledText = "";
+        if (sharedTitle) compiledText += `*${sharedTitle}*\n`;
+        if (sharedText) compiledText += sharedText;
+        if (sharedUrl) {
+          if (compiledText) compiledText += "\n";
+          compiledText += sharedUrl;
+        }
+
+        // Wait until input is enabled, then populate
+        const checkInterval = setInterval(() => {
+          if (!messageInput.disabled) {
+            clearInterval(checkInterval);
+            messageInput.value = compiledText;
+            messageInput.focus();
+          }
+        }, 100);
+      }
+
+      // 2. Handle shared files
+      if (params.has("shared-file")) {
+        window.history.replaceState({}, document.title, "/");
+
+        try {
+          const cache = await caches.open("shared-files-cache");
+          const response = await cache.match("/shared-file-temp");
+          
+          if (response) {
+            const blob = await response.blob();
+            const fileName = decodeURIComponent(response.headers.get("x-file-name") || "shared-file");
+            const fileType = response.headers.get("content-type") || "application/octet-stream";
+            
+            const file = new File([blob], fileName, { type: fileType });
+
+            // Wait until Socket.IO session is active and registered
+            const checkInterval = setInterval(async () => {
+              if (usernameRegistered && mySocketId) {
+                clearInterval(checkInterval);
+                uploadFile(file);
+                await cache.delete("/shared-file-temp");
+              }
+            }, 100);
+          }
+        } catch (error) {
+          console.error("Failed to load shared file:", error);
+        }
+      }
+    }
+
+    // Trigger share target processing on load
+    processSharedItems();
+  </script>
+</body>
+</html>

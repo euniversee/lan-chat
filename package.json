@@ -1,0 +1,27 @@
+{
+  "name": "lan-realtime-group-chat",
+  "version": "1.0.0",
+  "description": "Real-time group chat application for local LAN/WiFi networks.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:short": "set PORT=80&& node server.js"
+  },
+  "keywords": [
+    "lan",
+    "chat",
+    "realtime",
+    "socket.io",
+    "express"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bonjour-service": "^1.4.0",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
